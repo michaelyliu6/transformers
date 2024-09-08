@@ -195,6 +195,14 @@ with torch.no_grad(): # explicitly tell pytorch not to keep track of gradients t
 #                                             
 # *--- Blocks -----------------------------------------------------------------------------------------------------------
 
+# attempt to autodetect the device
+device = "cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    device = "mps"
+print(f"using device: {device}")
+
 
 import tiktoken
 
@@ -206,10 +214,10 @@ tokens = encoder.encode("Hello, I am an language model,")
 tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
 tokens = tokens.unsqueeze(0) # (1, 8)
 tokens = tokens.repeat(num_return_sequences, 1) # (5, 8)
-x = tokens.to('cpu')
+x = tokens.to(device)
 
 scratch_model.eval()
-scratch_model.to('cpu')
+scratch_model.to(device)
 
 
 torch.manual_seed(42)
