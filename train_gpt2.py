@@ -186,17 +186,25 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 #  wpe                         element-wise addition with the Positional Embedding Layer ([block_size, n_embd])
 #                                                               |
 #                                                               V
-#                                                   [block_size, n_embd]
+#                                                      [block_size, n_embd]
 #                                                               |
 #                                                               V
 # *--- Blocks -----------------------------------------------------------------------------------------------------------
-#                                                     Normalization Layer
-#                                                               | 
+#                                     element-wise addition with attention(layer_norm(input)) [block_size, n_embd]
+#                                                               |
 #                                                               V
-#                                                    [block_size, n_embd]
-#                                                               | 
-#                                             
+#                                      element-wise addition with mlp(layer_norm(input)) [block_size, n_embd]
 # *--- Blocks -----------------------------------------------------------------------------------------------------------
+#                                                               |
+#                                                       Layer Normalization
+#                                                               |
+#                                                               V
+#                                               multiply by linear classifier [n_embd, vocab_size]
+#                                                               |
+#                                                               V
+#                                                    [block_size, vocab_size]
+
+
 
 # attempt to autodetect the device
 device = "cpu"
@@ -217,6 +225,7 @@ text = text[:1000]
 tokens = enc.encode(text)
 B, T = 4, 32
 buf = torch.tensor(tokens[:B*T + 1])
+buf = buf.to(device)
 x = buf[:-1].view(B, T)
 y = buf[1:].view(B, T)
 
@@ -227,8 +236,25 @@ scratch_model.to(device)
 logits, loss = scratch_model(x, y)
 
 
-print(logits.shape)
-print(loss)
+# Initialize the AdamW optimizer with a learning rate of 3e-4
+optimizer = torch.optim.AdamW(scratch_model.parameters(), lr=3e-4)
+
+# Start a training loop that will run for 50 iterations
+for i in range(50):
+    # Zero out the gradients from the previous iteration
+    optimizer.zero_grad()
+    
+    # Forward pass: compute the model's output (logits) and loss
+    logits, loss = scratch_model(x, y)
+    
+    # Backward pass: compute gradients of the loss with respect to model parameters
+    loss.backward()
+    
+    # Update the model's parameters using the computed gradients
+    optimizer.step()
+    
+    # Print the current iteration number and loss value
+    print(f"step {i}, loss: {loss.item()}")
 
 
 # import tiktoken
