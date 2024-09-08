@@ -160,12 +160,12 @@ hf_sd_keys = [k for k in hf_sd_keys if not k.endswith('.attn.masked_bias')] # ??
 # So we just need to transpose the weights when we import them into our model skeleton 
 transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
 
-with torch.no_grad(): # explicitly tell pytorch not to keep track of gradients to save some performance 
-    for k in hf_sd_keys:
-        if any(k.endswith(w) for w in transposed_keys): # for keys related to 
-            sd[k].copy_(hf_model_state_dict[k].t())
-        else:
-            sd[k].copy_(hf_model_state_dict[k])
+# with torch.no_grad(): # explicitly tell pytorch not to keep track of gradients to save some performance 
+#     for k in hf_sd_keys:
+#         if any(k.endswith(w) for w in transposed_keys): # for keys related to 
+#             sd[k].copy_(hf_model_state_dict[k].t())
+#         else:
+#             sd[k].copy_(hf_model_state_dict[k])
 
 
 # print(sd_keys)
@@ -202,6 +202,20 @@ if torch.cuda.is_available():
 elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
     device = "mps"
 print(f"using device: {device}")
+
+
+
+# get a data batch
+import tiktoken
+enc = tiktoken.get_encoding('gpt2')
+with open('input.txt', 'r') as f:
+    text = f.read()
+text = text[:1000]
+tokens = enc.encode(text)
+B, T = 4, 32
+buf = torch.tensor(tokens[:B*T + 1])
+x = buf[:-1].view(B, T)
+y = buf[1:].view(B, T)
 
 
 import tiktoken
