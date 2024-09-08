@@ -99,6 +99,9 @@ class GPT(nn.Module):
 
         self.lm_head = nn.Linear(config['n_embd'], config['vocab_size'], bias=False)
 
+        # weight tie the embedding and unembedding matrix
+        self.transformer.wte.weight = self.lm_head.weight
+
     def forward(self, idx, targets=None): # idx is shape [batch_size, block_size] (still in token form, not embedding)
         B, T = idx.shape
         
