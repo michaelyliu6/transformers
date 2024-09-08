@@ -15,7 +15,7 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
+        x = x + self.attn(self.ln_1(x)) # residual connections 
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -112,9 +112,9 @@ class GPT(nn.Module):
         for block in self.transformer.h: # feeding the input through the transformer blocks 
             x = block(x)
 
-        x = self.transformer.ln_f(x) # final layer form
+        x = self.transformer['ln_f'](x) # final layer form
 
-        logits = self.transformer.lm_head(x) # final linear classifier 
+        logits = self.lm_head(x) # final linear classifier 
 
         return logits
 
@@ -131,8 +131,8 @@ model_args = {
     'n_embd': 768,
 } # for the 124M parameter GPT model 
 
-model = GPT(model_args)
-sd = model.state_dict()
+scratch_model = GPT(model_args)
+sd = scratch_model.state_dict()
 
 
 sd_keys = sd.keys()
@@ -172,9 +172,6 @@ with torch.no_grad(): # explicitly tell pytorch not to keep track of gradients t
 
 
 
-print("Finished!!")
-
-
 
 # Input:                                            [block_size, vocab_size]
 #                                                               |
@@ -196,6 +193,7 @@ print("Finished!!")
 #                                                    [block_size, n_embd]
 #                                                               | 
 #                                             
+# *--- Blocks -----------------------------------------------------------------------------------------------------------
 
 
 import tiktoken
@@ -210,8 +208,8 @@ tokens = tokens.unsqueeze(0) # (1, 8)
 tokens = tokens.repeat(num_return_sequences, 1) # (5, 8)
 x = tokens.to('cpu')
 
-model.eval()
-model.to('cpu')
+scratch_model.eval()
+scratch_model.to('cpu')
 
 
 torch.manual_seed(42)
@@ -219,25 +217,33 @@ torch.cuda.manual_seed(42)
 
 with torch.no_grad():
     while x.size(1) < max_sequence_length: # keep generating next token until max_sequence_length is reached
-        logits = model(x) 
+        logits = scratch_model(x)
+        # [batch_size, block_size, vocab_size] -> [batch_size, block_size, vocab_size] 
 
-        logits = logits[:,-1,:] # getting the logits at the last position
+        logits = logits[:,-1,:]
+        # [batch_size, vocab_size] selects the logits for the last token in each sequence 
 
         probs = nn.functional.softmax(logits, dim=-1) 
+        # [batch_size, vocab_size] applies a softmax function to convert logits to probabiltiies 
 
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) 
+        # topk_probs shape: [batch_size, 50]
+        # topk_indices shape: [batch_size, 50] 
 
-        ix = torch.multinomial(topk_probs, 1) # (B, 1)
+        ix = torch.multinomial(topk_probs, 1) 
+        # [B, 1] Performs a weighted random sampling from the top-k probabilities.
 
-        xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
+        xcol = torch.gather(topk_indices, -1, ix)
+        # [B, 1] maps the sampled index back to the original vocabulary index.
 
         x = torch.cat((x, xcol), dim=1)
+        # [B, L+ 1] appends the newly generated token to the end of the sequence 
 
 # print the generated text
 for i in range(num_return_sequences):
     tokens = x[i, :max_sequence_length].tolist()
     decoded = encoder.decode(tokens)
-    print(">", decoded)
+    print(">", decoded) 
 
 
-
+print("Finished!!")
