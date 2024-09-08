@@ -99,7 +99,7 @@ class GPT(nn.Module):
 
         self.lm_head = nn.Linear(config['n_embd'], config['vocab_size'], bias=False)
 
-    def forward(self, idx): # idx is shape [batch_size, block_size] (still in token form, not embedding)
+    def forward(self, idx, targets=None): # idx is shape [batch_size, block_size] (still in token form, not embedding)
         B, T = idx.shape
         
         positions = torch.arange(0, T, dtype=torch.long, device=idx.device) # Simple tensor of positions [0, 1, 2, 3, 4, ..., T - 1]
@@ -116,7 +116,10 @@ class GPT(nn.Module):
 
         logits = self.lm_head(x) # final linear classifier 
 
-        return logits
+        loss = None
+        if targets is not None:
+            loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        return logits, loss
 
         
 
@@ -218,54 +221,63 @@ x = buf[:-1].view(B, T)
 y = buf[1:].view(B, T)
 
 
-import tiktoken
-
-num_return_sequences = 5
-max_sequence_length = 30
-
-encoder = tiktoken.get_encoding('gpt2')
-tokens = encoder.encode("Hello, I am an language model,")
-tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
-tokens = tokens.unsqueeze(0) # (1, 8)
-tokens = tokens.repeat(num_return_sequences, 1) # (5, 8)
-x = tokens.to(device)
-
 scratch_model.eval()
 scratch_model.to(device)
 
+logits, loss = scratch_model(x, y)
 
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
 
-with torch.no_grad():
-    while x.size(1) < max_sequence_length: # keep generating next token until max_sequence_length is reached
-        logits = scratch_model(x)
-        # [batch_size, block_size, vocab_size] -> [batch_size, block_size, vocab_size] 
+print(logits.shape)
+print(loss)
 
-        logits = logits[:,-1,:]
-        # [batch_size, vocab_size] selects the logits for the last token in each sequence 
 
-        probs = nn.functional.softmax(logits, dim=-1) 
-        # [batch_size, vocab_size] applies a softmax function to convert logits to probabiltiies 
+# import tiktoken
 
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) 
-        # topk_probs shape: [batch_size, 50]
-        # topk_indices shape: [batch_size, 50] 
+# num_return_sequences = 5
+# max_sequence_length = 30
 
-        ix = torch.multinomial(topk_probs, 1) 
-        # [B, 1] Performs a weighted random sampling from the top-k probabilities.
+# encoder = tiktoken.get_encoding('gpt2')
+# tokens = encoder.encode("Hello, I am an language model,")
+# tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
+# tokens = tokens.unsqueeze(0) # (1, 8)
+# tokens = tokens.repeat(num_return_sequences, 1) # (5, 8)
+# x = tokens.to(device)
 
-        xcol = torch.gather(topk_indices, -1, ix)
-        # [B, 1] maps the sampled index back to the original vocabulary index.
 
-        x = torch.cat((x, xcol), dim=1)
-        # [B, L+ 1] appends the newly generated token to the end of the sequence 
 
-# print the generated text
-for i in range(num_return_sequences):
-    tokens = x[i, :max_sequence_length].tolist()
-    decoded = encoder.decode(tokens)
-    print(">", decoded) 
+
+# torch.manual_seed(42)
+# torch.cuda.manual_seed(42)
+
+# with torch.no_grad():
+#     while x.size(1) < max_sequence_length: # keep generating next token until max_sequence_length is reached
+#         logits = scratch_model(x)
+#         # [batch_size, block_size, vocab_size] -> [batch_size, block_size, vocab_size] 
+
+#         logits = logits[:,-1,:]
+#         # [batch_size, vocab_size] selects the logits for the last token in each sequence 
+
+#         probs = nn.functional.softmax(logits, dim=-1) 
+#         # [batch_size, vocab_size] applies a softmax function to convert logits to probabiltiies 
+
+#         topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) 
+#         # topk_probs shape: [batch_size, 50]
+#         # topk_indices shape: [batch_size, 50] 
+
+#         ix = torch.multinomial(topk_probs, 1) 
+#         # [B, 1] Performs a weighted random sampling from the top-k probabilities.
+
+#         xcol = torch.gather(topk_indices, -1, ix)
+#         # [B, 1] maps the sampled index back to the original vocabulary index.
+
+#         x = torch.cat((x, xcol), dim=1)
+#         # [B, L+ 1] appends the newly generated token to the end of the sequence 
+
+# # print the generated text
+# for i in range(num_return_sequences):
+#     tokens = x[i, :max_sequence_length].tolist()
+#     decoded = encoder.decode(tokens)
+#     print(">", decoded) 
 
 
 print("Finished!!")
