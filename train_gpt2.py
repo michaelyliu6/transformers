@@ -5,6 +5,10 @@ from transformers import GPT2LMHeadModel
 import torch
 import math
 
+torch.manual_seed(1337)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(1337)
+
 class Block(nn.Module):
 
     def __init__(self, config):
@@ -28,6 +32,7 @@ class CausalSelfAttention(nn.Module):
         self.c_attn = nn.Linear(config['n_embd'], 3 * config['n_embd'])
         # output projection
         self.c_proj = nn.Linear(config['n_embd'], config['n_embd'])
+        self.c_proj.NANOGPT_SCALE_INIT = 1
         # regularization
         self.n_head = config['n_head']
         self.n_embd = config['n_embd']
@@ -101,6 +106,21 @@ class GPT(nn.Module):
 
         # weight tie the embedding and unembedding matrix
         self.transformer.wte.weight = self.lm_head.weight
+
+        # init params by applying _init_weights to all submodules 
+        self.apply(self.init_weights)
+
+    # this is how gpt2 was initalized in https://github.com/openai/gpt-2/blob/master/src/model.py#L152-L167, but didn't find significant improvement from this
+    def init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'NANOGPT_SCALE_INIT'):
+                std *= (2 * self.config['n_layer']) ** -0.5
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None): # idx is shape [batch_size, block_size] (still in token form, not embedding)
         B, T = idx.shape
