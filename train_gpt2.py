@@ -273,13 +273,18 @@ print(f"using device: {device}")
 train_loader = DataLoaderLite(B=16, T=1024) # generated x and y of shape [16, 1024] 
 
 
+
+# used for unlocking better performance by better utilizing the GPU
 # https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html
-# used for unlocking better performance by utilizing the GPU
 torch.set_float32_matmul_precision('high')
 
 
 scratch_model.eval()
 scratch_model.to(device)
+
+# allow pytorch to automatically read through the model and make optimizations 
+# https://pytorch.org/docs/stable/generated/torch.compile.html
+scratch_model = torch.compile(model)
 
 # Initialize the AdamW optimizer with a learning rate of 3e-4
 optimizer = torch.optim.AdamW(scratch_model.parameters(), lr=3e-4)
