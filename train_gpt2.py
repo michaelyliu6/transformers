@@ -229,6 +229,7 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 
 # -----------------------------------------------------------------------------
 import tiktoken
+import time
 
 class DataLoaderLite:
     def __init__(self, B, T):
@@ -269,7 +270,12 @@ print(f"using device: {device}")
 
 
 
-train_loader = DataLoaderLite(B=4, T=32)
+train_loader = DataLoaderLite(B=16, T=1024) # generated x and y of shape [16, 1024] 
+
+
+# https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html
+# used for unlocking better performance by utilizing the GPU
+torch.set_float32_matmul_precision('high')
 
 
 scratch_model.eval()
@@ -299,8 +305,14 @@ for i in range(50):
     # Update the model's parameters using the computed gradients
     optimizer.step()
     
-    # Print the current iteration number and loss value
-    print(f"step {i}, loss: {loss.item()}")
+    # wait for the GPU to finish work
+    torch.cuda.synchronize()
+
+     # calculate time difference in miliseconds
+    t1 = time.time()
+    dt = (t1 - t0)*1000 # time difference in miliseconds
+    tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
+    print(f"step {i}, loss: {loss.item()}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f}")
 
 
 # import tiktoken
