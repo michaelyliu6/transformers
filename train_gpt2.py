@@ -153,7 +153,7 @@ model_args = {
     'vocab_size': 50257,
     'block_size': 1024,
     'n_layer': 12,
-    'n_head': 12,
+    'n_head': 12,g
     'n_embd': 768,
 } # for the 124M parameter GPT model 
 
@@ -297,7 +297,9 @@ for i in range(50):
     optimizer.zero_grad()
     
     # Forward pass: compute the model's output (logits) and loss
-    logits, loss = scratch_model(x, y)
+    # let pytorch selectively downcasting the precision of some operations to speed up training while maintaining accuracy and reducing memory usage 
+    with torch.autocast(device_type=device, dtype=torch.bfloat16): 
+        logits, loss = model(x, y)
     
     # Backward pass: compute gradients of the loss with respect to model parameters
     loss.backward()
