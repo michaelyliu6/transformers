@@ -153,10 +153,10 @@ class GPT(nn.Module):
 
 
 model_args = {
-    'vocab_size': 50257,
+    'vocab_size': 50304,
     'block_size': 1024,
     'n_layer': 12,
-    'n_head': 12,g
+    'n_head': 12,
     'n_embd': 768,
 } # for the 124M parameter GPT model 
 
