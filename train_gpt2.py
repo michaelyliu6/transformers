@@ -4,6 +4,7 @@ import torch.nn as nn
 from transformers import GPT2LMHeadModel
 import torch
 import math
+import inspect
 
 torch.manual_seed(1337)
 if torch.cuda.is_available():
@@ -147,7 +148,69 @@ class GPT(nn.Module):
             loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         return logits, loss
 
-        
+
+
+    # About AdamW:
+    # Basic Gradient Descent:
+    #
+    # Uses only the current gradient to update weights.
+    # Weight update: new_weight = old_weight - learning_rate * current_gradient
+    #
+    #
+    # Adam and similar optimizers:
+    #
+    # Still use the current gradient, but in a more sophisticated way.
+    # They don't directly use past gradients, but they keep track of gradient statistics.
+    #
+    #
+    # What Adam actually does:
+    #
+    # Calculates the current gradient at each step, just like basic gradient descent.
+    # Maintains running averages of gradient statistics (not past gradients themselves).
+    # Uses these statistics to adjust how the current gradient is applied.
+    #
+    #
+    # The role of decay rate:
+    #
+    # Controls how these running averages are updated with each new gradient.
+    # It doesn't apply to past gradients directly, but to these statistical summaries.
+    #
+    #
+    # An analogy:
+    #
+    # Imagine you're steering a ship. Basic gradient descent is like turning the wheel based solely on your current position.
+    # Adam is like considering your current position, but also factoring in your recent trajectory and speed of turning.
+    #
+    # weight decay: it's equivalent to adding a regularization term to the loss function: L2 regularization.
+    #   Encourages smaller weights, potentially leading to simpler models.
+    # lr: learning rate 
+    # optim_groups: parameters that are or aren't weight decayed
+    # betas: β₁, β₂: decay rates for moment estimates
+    #   Control the balance between using recent and historical gradient information.
+    # eps: parameter in the optimizer configuration refers to a small constant value added for numerical stability instead of 0 for divions        
+    # fused: boolean: use fused kernals in CUDA if available
+    def configure_optimizers(self, weight_decay, learning_rate, device):
+        # start with all of the candidate parameters (that require grad)
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
+        # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
+        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+        nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+        optim_groups = [
+            {'params': decay_params, 'weight_decay': weight_decay},
+            {'params': nodecay_params, 'weight_decay': 0.0}
+        ]
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_nodecay_params = sum(p.numel() for p in nodecay_params)
+        print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
+        print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+        # Create AdamW optimizer and use the fused version if it is available
+        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+        use_fused = fused_available and 'cuda' in device
+        print(f"using fused AdamW: {use_fused}")
+        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
+        return optimizer
 
 
 
@@ -309,41 +372,7 @@ def get_lr(it):
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
     return min_lr + coeff * (max_lr - min_lr)
 
-# About AdamW:
-# Basic Gradient Descent:
-#
-# Uses only the current gradient to update weights.
-# Weight update: new_weight = old_weight - learning_rate * current_gradient
-#
-#
-# Adam and similar optimizers:
-#
-# Still use the current gradient, but in a more sophisticated way.
-# They don't directly use past gradients, but they keep track of gradient statistics.
-#
-#
-# What Adam actually does:
-#
-# Calculates the current gradient at each step, just like basic gradient descent.
-# Maintains running averages of gradient statistics (not past gradients themselves).
-# Uses these statistics to adjust how the current gradient is applied.
-#
-#
-# The role of decay rate:
-#
-# Controls how these running averages are updated with each new gradient.
-# It doesn't apply to past gradients directly, but to these statistical summaries.
-#
-#
-# An analogy:
-#
-# Imagine you're steering a ship. Basic gradient descent is like turning the wheel based solely on your current position.
-# Adam is like considering your current position, but also factoring in your recent trajectory and speed of turning.
-#
-# lr: learning rate 
-# betas: β₁, β₂: decay rates for moment estimates
-# eps: parameter in the optimizer configuration refers to a small constant value added for numerical stability instead of 0 for divions
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+optimizer = scratch_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device)
 
 # Start a training loop that will run for 50 iterations
 for step in range(max_steps):
