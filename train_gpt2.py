@@ -290,43 +290,63 @@ scratch_model.to(device)
 scratch_model = torch.compile(model)
 
 
-# Basic Gradient Descent:
 
+
+max_lr = 6e-4
+min_lr = max_lr * 0.1
+warmup_steps = 10
+max_steps = 50
+def get_lr(it):
+    # 1) linear warmup for warmup_iters steps
+    if it < warmup_steps:
+        return max_lr * (it+1) / warmup_steps
+    # 2) if it > lr_decay_iters, return min learning rate
+    if it > max_steps:
+        return min_lr
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+    return min_lr + coeff * (max_lr - min_lr)
+
+# About AdamW:
+# Basic Gradient Descent:
+#
 # Uses only the current gradient to update weights.
 # Weight update: new_weight = old_weight - learning_rate * current_gradient
-
-
+#
+#
 # Adam and similar optimizers:
-
+#
 # Still use the current gradient, but in a more sophisticated way.
 # They don't directly use past gradients, but they keep track of gradient statistics.
-
-
+#
+#
 # What Adam actually does:
-
+#
 # Calculates the current gradient at each step, just like basic gradient descent.
 # Maintains running averages of gradient statistics (not past gradients themselves).
 # Uses these statistics to adjust how the current gradient is applied.
-
-
+#
+#
 # The role of decay rate:
-
+#
 # Controls how these running averages are updated with each new gradient.
 # It doesn't apply to past gradients directly, but to these statistical summaries.
-
-
+#
+#
 # An analogy:
-
+#
 # Imagine you're steering a ship. Basic gradient descent is like turning the wheel based solely on your current position.
 # Adam is like considering your current position, but also factoring in your recent trajectory and speed of turning.
-
+#
 # lr: learning rate 
 # betas: β₁, β₂: decay rates for moment estimates
 # eps: parameter in the optimizer configuration refers to a small constant value added for numerical stability instead of 0 for divions
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
 
 # Start a training loop that will run for 50 iterations
-for i in range(50):
+for step in range(max_steps):
     # fetch next batch of training data from DataLoaderLite
     x, y = train_loader.next_batch()
 
@@ -348,6 +368,11 @@ for i in range(50):
     # Gradient clipping: If the norm exceeds the specified maximum (1.0 in this case), it scales down all gradients proportionally so that their norm equals the maximum.
     # Stablize training by prevent gradients from becoming too large (exploding gradients) 
     norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+    # determine and set the learning rate for this iteration
+    lr = get_lr(step)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
     
     # Update the model's parameters using the computed gradients
     optimizer.step()
@@ -359,7 +384,7 @@ for i in range(50):
     t1 = time.time()
     dt = (t1 - t0)*1000 # time difference in miliseconds
     tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
-    print(f"step {i:4d} | loss: {loss.item():.6f} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+    print(f"step {step:4d} | loss: {loss.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
 
 
 # import tiktoken
