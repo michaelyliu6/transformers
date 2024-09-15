@@ -44,3 +44,4 @@ e. Click "OK" to save these settings
 pip install transformers
 pip install tiktoken
 pip install --upgrade networkx
+pip install --upgrade torch
