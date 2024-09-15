@@ -41,7 +41,13 @@ e. Click "OK" to save these settings
 
 # Install Dependencies
 
+## train_gpt2.py
+
 pip install transformers
 pip install tiktoken
 pip install --upgrade networkx
 pip install --upgrade torch
+
+## fineweb.py
+
+pip install --upgrade datasets
