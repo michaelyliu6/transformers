@@ -12,6 +12,15 @@ torch.manual_seed(1337)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(1337)
 
+
+model_args = {
+    'vocab_size': 50304,
+    'block_size': 1024,
+    'n_layer': 12,
+    'n_head': 12,
+    'n_embd': 768,
+} # for the 124M parameter GPT model 
+
 class Block(nn.Module):
 
     def __init__(self, config):
@@ -22,7 +31,7 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x)) # residual connections 
+        x = x + self.attn(self.ln_1(x)) # residual connections: information collected form each block is directly passed through the network in aggreate to understand and blend information from all layers 
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -48,11 +57,21 @@ class CausalSelfAttention(nn.Module):
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
         # e.g. in GPT-2 (124M), n_head=12, hs=64, so nh*hs=C=768 channels in the Transformer
-        qkv = self.c_attn(x)
-        q, k, v = qkv.split(self.n_embd, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+
+        # Query (Q): Think of this as a person looking for a specific book. The query represents the question or topic they're interested in.
+        # Key (K): These are like the labels or categories on the bookshelves. Each book (or piece of information) has a key that describes what it's about.
+        # Value (V): This represents the actual content of the books. It's the information you get when you open and read a book.
+
+        # Multiple Search Strategies (Heads):
+        # Imagine instead of just you searching the library, there are several librarians (let's say 8, as that's a common number of attention heads) helping you. 
+        # Each librarian has a different specialty or perspective on how to find information.
+
+
+        qkv = self.c_attn(x) # (B, T, 3 * n_embd)
+        q, k, v = qkv.split(self.n_embd, dim=2)  # (B, T, n_embd)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, n_head, T, n_embd // n_head)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, n_head, T, n_embd // n_head)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, n_head, T, n_embd // n_head)
 
          # flash attention
          # processes the entire attention calculation into smaller chunks 
@@ -60,7 +79,21 @@ class CausalSelfAttention(nn.Module):
          # recomputes certain values as needed
          # better utilizes accesses to GPU memory bandwidth 
         y = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
-        
+
+        # non-flash attention (materializes the large (T,T) matrix for all the queries and keys)
+
+        # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+        # att = nn.functional.softmax(att, dim=-1)
+        # y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
+
+        # attention(q,k,v) = softmax(QK^T)V
+        # multihead(q,k,v) = concat(head1,head2,...)Wo
+        # multihead(q,k,v,X)= AXWvo
+        # A = softmax(QK^T) <- non-linear
+        # Wvo = WvWo <- linear 
+
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
         # output projection
         y = self.c_proj(y)
@@ -88,6 +121,9 @@ class MLP(nn.Module):
         # Converting the back to originial dimensionality 
         self.c_proj  = nn.Linear(4 * config['n_embd'], config['n_embd'])
 
+    # Expansion (1st linear layer): Allows the model to create many complex features from the input, increasing its representational power.
+    # Non-linearity (ReLU): Enables the model to capture complex, non-linear relationships in the data.
+    # Contraction (2nd linear layer): Synthesizes the expanded, non-linear features back into a form that can be used by the next layer of the network.
     def forward(self, x):
         x = self.c_fc(x)
         x = self.gelu(x)
@@ -111,6 +147,11 @@ class GPT(nn.Module):
         self.lm_head = nn.Linear(config['n_embd'], config['vocab_size'], bias=False)
 
         # weight tie the embedding and unembedding matrix
+
+        # this is a memory optimzation
+        # by weight tying, you give the model less flexibility
+        # think 0 layer models, if they were tyed you would always predict the same word
+        # if they were untied, you could at least predict based on the previous word 
         self.transformer.wte.weight = self.lm_head.weight
 
         # init params by applying _init_weights to all submodules 
@@ -268,14 +309,48 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 # print(sd_keys)
 
 
+# Imagine GPT-2 as an ever-growing, very organized party. Here's how it works:
+
+# Party Start:
+# The party begins with a few initial guests (input tokens). Each guest wears a unique outfit (token embedding) and a name tag showing their arrival order (positional embedding).
+# Party Rooms:
+# The party takes place across several identical rooms (transformer blocks) where they takes notes from each room (residual connections). In each room:
+# a. Mingling Area (Multi-Head Self-Attention):
+
+# Guests are temporarily "cloned" into multiple versions of themselves.
+# Each set of clones has a specific conversation topic (attention head).
+# Clones discuss their topic with all other guests' clones, considering outfits and arrival order. (the depth of their converstions correlated to the dimensionality of the attention heads)
+# This allows for multiple perspectives on how guests relate to each other and adds those perspectives to thir notes.
+
+# b. Reflection Corner (Multi-Layer Perceptron):
+
+# Clones merge back, and guests ponder on all the conversations they just had and take notes about their reflects.
+
+# c. Mood Balancers (Layer Normalization):
+
+# Party moderators ensure everyone's energy and engagement levels stay balanced by making sure none of the notes are overly bias.
+
+# Next Guest Prediction:
+# After going through all rooms, the last guest plays a game:
+
+# They create a probability list for who might arrive next, based on all previous conversations.
+# It's like filling out a survey ranking how likely each potential new guest is to arrive.
 
 
-# Input:                                            [block_size, vocab_size]
+# New Arrival:
+# A new guest is chosen based on these probabilities. They put on their outfit, get their name tag, and enter the first room.
+# Continuous Process:
+# This cycle repeats. Each new guest goes through all rooms, chatting with all previous guests, then predicts the next arrival.
+
+
+
+
+# Input:                                            [block_size, vocab_size] (1024, 50304)
 #                                                               |
 #  wte                                  multiply by the Token Embedding Layer ([vocab_size, n_embd]) 
 #                                                               |
 #                                                               V
-#                                                   [block_size, n_embd]
+#                                                   [block_size, n_embd] (1024, 768)
 #                                                               |
 #  wpe                         element-wise addition with the Positional Embedding Layer ([block_size, n_embd])
 #                                                               |
