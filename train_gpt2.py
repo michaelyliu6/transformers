@@ -22,6 +22,7 @@ model_args = {
 } # for the 124M parameter GPT model 
 
 class Block(nn.Module):
+    # See: transformer-architecture.png
 
     def __init__(self, config):
         super().__init__()
@@ -36,6 +37,7 @@ class Block(nn.Module):
         return x
 
 class CausalSelfAttention(nn.Module):
+    # See: transformer-attention-architecture.png
 
     def __init__(self, config):
         super().__init__()
@@ -83,7 +85,7 @@ class CausalSelfAttention(nn.Module):
         # non-flash attention (materializes the large (T,T) matrix for all the queries and keys)
 
         # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+        # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf')) #  apply a mask to them so that the model can only attend to previous positions (i.e. the model can't cheat by looking at future positions).
         # att = nn.functional.softmax(att, dim=-1)
         # y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
 
@@ -91,8 +93,8 @@ class CausalSelfAttention(nn.Module):
         # attention(q,k,v) = softmax(QK^T)V
         # multihead(q,k,v) = concat(head1,head2,...)Wo
         # multihead(q,k,v,X)= AXWvo
-        # A = softmax(QK^T) <- non-linear
-        # Wvo = WvWo <- linear 
+        # A = softmax(QK^T) <- non-linear (where to move information to and from)
+        # Wvo = WvWo <- linear (what information to move)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
         # output projection
@@ -102,6 +104,72 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
+    # See mlp-architecture.png
+
+
+    # Key intuition - MLPs as key-value pairs
+    # We can write the MLP's output as  f(xTWin)Wout , where  Win  and  Wout  are the different weights of the MLP (ignoring biases),  f  is the activation function, and  x  is a vector in the residual stream. This can be rewritten as:
+
+    # f(xTWin)Wout=∑i=1dmlpf(xTWin[:,i])Wout[i,:] 
+
+    # We can view the vectors  Win[:,i]  as the input directions, and  Wout[i,:]  as the output directions. We say the input directions are activated by certain textual features, and when they are activated, vectors are written in the corresponding output direction. 
+    # This is very similar to the concept of keys and values in attention layers, which is why these vectors are also sometimes called keys and values (e.g. see the paper Transformer Feed-Forward Layers Are Key-Value Memories).
+
+    # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    # Key intuition - MLPs as knowledge storage
+    # We can think of MLPs as where knowledge gets stored in our transformer. The attention mechanism is what moves information around between sequence positions, 
+    # but the MLPs is where this information is processed, and new information is written into the residual stream which is a function of the old information.
+
+    # This is deeply connected to the key-value pairs model, since you can treat key-value pairs as a kind of associative memory system 
+    # (where the key serves as a unique identifier, and the value holds the related information).
+
+    # Another related intuition (for which there is some evidence) is MLPs as memory management. In an idealized case, we might find that the  i -th neuron satisfies  Win[:,i]≈−Wout[i,:]≈v⃗   
+    # for some unit vector  v⃗  , meaning it may be responsible for erasing the positive component of vector  x⃗   in the direction  v⃗   (exercise - can you show why this is the case?).
+    # This can free up space in the residual stream for other components to write to.
+
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    # Feed-Forward Network as Key-Value Memory
+
+    # Basic FFN Structure:
+    # Input x [hidden_size] → W1 (up-project) [hidden_size, ffn_size] → GeLU → W2 (down-project) [ffn_size, hidden_size]
+
+    # As Key-Value Memory:
+    # Keys (W1)
+    # • Each row is a "key" pattern
+    # • Matches against input
+    # • Determines memory activation
+    # Values (W2)
+    # • Each column is a "value" pattern
+    # • Added to output when activated
+    # • Represents stored information
+
+    # Input: "The cat sat on the" → Key Match: "animal on object" → Retrieved Value: "typical locations"
+
+    # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    # FFN as Key-Value Memory and Information Processor
+
+    # 1. Knowledge Extraction:
+    # Key-Value Mapping
+    # Keys (W1): Patterns to match in input
+    # Values (W2): Associated information/transformations
+    # Allows access to learned knowledge
+
+    # 2. Residual Stream Processing:
+    # Information Refinement
+    # Simplifies complex representations
+    # Removes redundancies
+    # Focuses on most relevant information
+
+    # 3. "Memory" Characteristics:
+    # Not Just Accumulation
+    # Selective retrieval based on context
+    # Compact, distilled representations
+    # Dynamic interaction with input
+    # Example Process Flow:
+    # Input: "Red sphere" → Key Match: "object + color" → Value Retrieval: "common objects" → Output: "ball-like properties"
 
     def __init__(self, config):
         # Input: x (shape: [batch_size, seq_length, n_embd])
@@ -114,7 +182,7 @@ class MLP(nn.Module):
         self.c_fc    = nn.Linear(config['n_embd'], 4 * config['n_embd']) 
 
         # Activation Function https://pytorch.org/docs/stable/generated/torch.nn.GELU.html
-        # Similar to Relu (x > 0 ? x : 0), but allows for signfiicantly smoother gradient transitions
+        # Similar to Relu (x > 0 ? x : 0), but allows for signfiicantly smoother gradient transitions https://paperswithcode.com/method/gelu
         self.gelu    = nn.GELU()
 
         # Projection layer 
@@ -132,6 +200,7 @@ class MLP(nn.Module):
 
 
 class GPT(nn.Module):
+    # See: high_level_architecture.png
 
     def __init__(self, config):
         super().__init__()
@@ -144,6 +213,9 @@ class GPT(nn.Module):
             'ln_f': nn.LayerNorm(config['n_embd']),
         })
 
+        # unembedding, that's it....
+        # nn.Embedding is more efficient for sparse lookup operations
+        # nn.Linear is more natural for dense matrix multiplication
         self.lm_head = nn.Linear(config['n_embd'], config['vocab_size'], bias=False)
 
         # weight tie the embedding and unembedding matrix
@@ -152,6 +224,25 @@ class GPT(nn.Module):
         # by weight tying, you give the model less flexibility
         # think 0 layer models, if they were tyed you would always predict the same word
         # if they were untied, you could at least predict based on the previous word 
+
+        # Note - sometimes we use something called a tied embedding - this is where we use the same weights for our  WE  and  WU  matrices. In other words, 
+        # to get the logit score for a particular token at some sequence position, we just take the vector in the residual stream at that sequence position and 
+        # take the inner product with the corresponding token embedding vector. This is more training-efficient (because there are fewer parameters in our model), 
+        # and it might seem pricipled at first. After all, if two words have very similar meanings, shouldn't they have similar embedding vectors because the model will treat them the same, 
+        # and similar unembedding vectors because they could both be substituted for each other in most output?
+
+        # However, this is actually not very principled, for the following main reason: the direct path involving the embedding and unembedding should approximate bigram frequencies.
+
+        # Let's break down this claim. Bigram frequencies refers to the frequencies of pairs of words in the english language 
+        # (e.g. the bigram frequency of "Barack Obama" is much higher than the product of the individual frequencies of the words "Barack" and "Obama"). 
+        # If our model had no attention heads or MLP layers, then all we have is a linear map from our one-hot encoded token T to a probability distribution over the token following T. 
+        # This map is represented by the linear transformation  t→tTWEWU  (where  t  is our one-hot encoded token vector). Since the output of this transformation can only be a function of the token T (and no earlier tokens), 
+        # the best we can do is have this map approximate the true frequency of bigrams starting with T, which appear in the training data. 
+        # Importantly, this is not a symmetric map. We want T = "Barack" to result in a high probability of the next token being "Obama", but not the other way around!
+
+        # Even in multi-layer models, a similar principle applies. 
+        # There will be more paths through the model than just the "direct path"  WEWU , but because of the residual connections there will always exist a direct path, 
+        # so there will always be some incentive for  WEWU  to approximate bigram frequencies.
         self.transformer.wte.weight = self.lm_head.weight
 
         # init params by applying _init_weights to all submodules 
@@ -344,7 +435,7 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 
 
 
-
+# See: high_level_architecture.png
 # Input:                                            [block_size, vocab_size] (1024, 50304)
 #                                                               |
 #  wte                                  multiply by the Token Embedding Layer ([vocab_size, n_embd]) 
