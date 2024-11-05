@@ -32,7 +32,7 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x)) # residual connections: information collected form each block is directly passed through the network in aggreate to understand and blend information from all layers 
+        x = x + self.attn(self.ln_1(x)) # residual connections: information collected form each block is directly passed through the network in aggreate to understand and blend information from all layers [block_size, n_embd] 
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -400,6 +400,7 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 # print(sd_keys)
 
 
+# Below, is an anology for transformers that came from a prompt engineering seesion with claude 3.5 sonnet, for a better anology see https://www.lesswrong.com/posts/euam65XjigaCJQkcN/an-analogy-for-understanding-transformers)
 # Imagine GPT-2 as an ever-growing, very organized party. Here's how it works:
 
 # Party Start:
@@ -416,6 +417,7 @@ transposed_keys = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight'
 # b. Reflection Corner (Multi-Layer Perceptron):
 
 # Clones merge back, and guests ponder on all the conversations they just had and take notes about their reflects.
+# Ex. One guest may remember talking to another guest with the same outfit as them, but came in earlier, in the sequence and which they may want to pay more attention to. (Repeated sequence Toy Problem)
 
 # c. Mood Balancers (Layer Normalization):
 
