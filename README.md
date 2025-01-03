@@ -39,15 +39,3 @@ c. Check the box for "Keep remote directory up to date"
 d. Set "Reconnect session when lost" to a value like 5 seconds
 e. Click "OK" to save these settings
 
-# Install Dependencies
-
-## train_gpt2.py
-
-pip install transformers
-pip install tiktoken
-pip install --upgrade networkx
-pip install --upgrade torch
-
-## fineweb.py
-
-pip install --upgrade datasets
