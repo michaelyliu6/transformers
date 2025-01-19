@@ -32,7 +32,7 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x)) # residual connections: information collected form each block is directly passed through the network in aggreate to understand and blend information from all layers [block_size, n_embd] 
+        x = x + self.attn(self.ln_1(x)) # residual connections: information collected from each block is directly passed through the network in aggregate to understand and blend information from all layers [block_size, n_embd] 
         x = x + self.mlp(self.ln_2(x))
         return x
 
