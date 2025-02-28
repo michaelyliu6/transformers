@@ -1,100 +1,84 @@
-# GPT-2 Transformers Implementation
+# GPT-2 Transformer Implementation and Mechanistic Interpretability
 
-This repository contains two implementations of GPT-2 (124M parameters), each offering different perspectives on the architecture:
+This repository contains a comprehensive implementation and exploration of transformer-based language models, with a focus on GPT-2 architecture and mechanistic interpretability. The project demonstrates a deep understanding of modern NLP techniques and transformer architecture internals.
 
 ## Repository Structure
 
-```
-transformers/
-├── nanoGPT/
-│   └── train_gpt2.py      # Production-ready implementation with optimizations
-├── cleanGPT/
-│   └── cleangpt2.ipynb    # Educational implementation with detailed explanations
-└── .gitignore
-```
+The repository is organized into several key components:
 
-## Implementation Details
+- **cleanGPT**: A clean, well-documented implementation of GPT-2 from scratch
+- **mechanistic_interpretability**: Tools and experiments for understanding how transformers work internally
+- **nanoGPT**: A lightweight implementation of GPT-2 with training and evaluation scripts
 
-### nanoGPT (Production Implementation)
-The `nanoGPT` implementation focuses on training efficiency and performance:
+## Key Features
 
-#### Features
-- Distributed Data Parallel (DDP) support
-- Gradient accumulation (default batch size: 524,288 tokens)
-- Flash attention for memory-efficient attention computation
-- Mixed precision training (bfloat16)
-- PyTorch model compilation
-- Custom DataLoaderLite for efficient data loading
+### Clean GPT-2 Implementation
 
-#### Training Configuration
-- Learning rate: 6e-4 with cosine decay
-- Weight decay: 0.1
-- Gradient clipping norm: 1.0
-- Warmup steps: 715
-- Maximum steps: 19,073
+The `cleanGPT` directory contains a detailed, educational implementation of GPT-2 with:
 
-### cleanGPT (Educational Implementation)
-The `cleanGPT` implementation in `cleangpt2.ipynb` provides a clear, well-documented version with:
+- Comprehensive tokenization explanation and implementation
+- Step-by-step transformer architecture building blocks:
+  - Token and positional embeddings
+  - Multi-head self-attention mechanism
+  - Feed-forward networks
+  - Layer normalization
+- Training pipeline with optimization techniques
+- Text generation capabilities with various sampling methods (greedy, top-k, top-p)
+- Advanced features like beam search and key-value caching for efficient inference
 
-#### Features
-- Detailed explanations of each component
-- Interactive visualizations of attention patterns
-- Step-by-step implementation of transformer architecture
-- Integration with Weights & Biases for experiment tracking
-- Educational examples and documentation
-- Clean, type-annotated code using PyTorch
+### Mechanistic Interpretability
 
-#### Training Configuration
-- Smaller batch size for easier experimentation
-- Configurable model size
-- AdamW optimizer with customizable learning rate
-- Integration with The Pile dataset
-- Train/test split functionality
+The `mechanistic_interpretability` directory showcases advanced techniques for understanding transformer internals:
 
-## Model Architecture
-Both implementations share the same GPT-2 architecture:
-- 12 transformer layers
-- 12 attention heads
-- 768 embedding dimensions
-- 50,304 vocabulary size
-- 1024 context window
+- **Induction Head Analysis**: Implementation and visualization of attention patterns
+- **Trigram Detection**: Experiments with models trained to detect specific token patterns
+- **Superposition Analysis**: Exploration of how models represent more features than dimensions
+- **Visualization Tools**: Custom plotting utilities for attention patterns and feature representations
 
-### Key Components
-- Token and positional embeddings
-- Multi-head self-attention with causal masking
-- Feed-forward neural networks with GeLU activation
-- Layer normalization
-- Weight-tied embeddings
+### NanoGPT Implementation
 
-## Usage
+The `nanoGPT` directory provides a production-focused implementation with:
 
-### nanoGPT Training
-```bash
-# Single GPU
-python nanoGPT/train_gpt2.py
+- Efficient transformer blocks with detailed comments explaining each component
+- Training pipeline with learning rate scheduling
+- Data processing for large-scale datasets (FineWeb)
+- Evaluation on benchmark datasets (HellaSwag)
 
-# Multi-GPU (DDP)
-torchrun --standalone --nproc_per_node=8 nanoGPT/train_gpt2.py
-```
+## Technical Skills Demonstrated
 
-### cleanGPT Training
-Open `cleanGPT/cleangpt2.ipynb` in Jupyter to:
-- Learn about transformer architecture
-- Experiment with different configurations
-- Visualize attention patterns
-- Train on custom datasets
+This repository showcases expertise in:
 
-## Requirements
+- **Deep Learning Frameworks**: PyTorch, Transformer-Lens
+- **Natural Language Processing**: Tokenization, language modeling, text generation
+- **Model Architecture**: Transformer design, attention mechanisms, residual connections
+- **Optimization Techniques**: Learning rate scheduling, weight decay, AdamW
+- **Interpretability Methods**: Attention visualization, feature attribution, circuit analysis
+- **Software Engineering**: Clean code organization, type annotations, efficient implementations
+- **Mathematics**: Linear algebra, probability, information theory
+
+## Applications
+
+The implementations in this repository can be used for:
+
+1. **Educational Purposes**: Understanding transformer architecture from first principles
+2. **Research**: Exploring model behavior and interpretability
+3. **Production**: Building and fine-tuning language models for specific applications
+4. **Experimentation**: Testing hypotheses about how language models work
+
+## Getting Started
+
+To explore this repository:
+
+1. Start with the `cleanGPT/cleangpt2.py` file for a comprehensive introduction to transformer architecture
+2. Explore the mechanistic interpretability notebooks to understand how transformers process information
+3. Check out the nanoGPT implementation for a more production-ready approach
+
+## Dependencies
+
 - PyTorch
-- Transformers (Hugging Face)
-- tiktoken
-- numpy
-- wandb (for cleanGPT)
-- jupyter (for cleanGPT)
-- einops (for cleanGPT)
-- datasets (for cleanGPT)
-
-## Acknowledgments
-- OpenAI for the original GPT-2 model
-- Hugging Face for their transformers library
-- Neel Nanda for transformer visualization tools 
+- Transformer-Lens
+- Einops
+- NumPy
+- Matplotlib/Plotly
+- Tiktoken
+- Datasets
