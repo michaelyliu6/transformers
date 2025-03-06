@@ -1,8 +1,8 @@
-# GPT-2 Transformer Implementation and Mechanistic Interpretability
+# 🚀 GPT-2 Transformer Implementation and Mechanistic Interpretability
 
 This repository contains a comprehensive implementation and exploration of transformer-based language models, with a focus on GPT-2 architecture and mechanistic interpretability. The project demonstrates a deep understanding of modern NLP techniques and transformer architecture internals.
 
-## Repository Structure
+## 📝 Repository Structure
 
 The repository is organized into several key components:
 
@@ -10,9 +10,9 @@ The repository is organized into several key components:
 - **mechanistic_interpretability**: Tools and experiments for understanding how transformers work internally
 - **nanoGPT**: A lightweight implementation of GPT-2 with training and evaluation scripts
 
-## Key Features
+## ✨ Key Features
 
-### Clean GPT-2 Implementation
+### 🧠 Clean GPT-2 Implementation
 
 The `cleanGPT` directory contains a detailed, educational implementation of GPT-2 with:
 
@@ -26,7 +26,7 @@ The `cleanGPT` directory contains a detailed, educational implementation of GPT-
 - Text generation capabilities with various sampling methods (greedy, top-k, top-p)
 - Advanced features like beam search and key-value caching for efficient inference
 
-### Mechanistic Interpretability
+### 🔬 Mechanistic Interpretability
 
 The `mechanistic_interpretability` directory showcases advanced techniques for understanding transformer internals:
 
@@ -35,7 +35,7 @@ The `mechanistic_interpretability` directory showcases advanced techniques for u
 - **Superposition Analysis**: Exploration of how models represent more features than dimensions
 - **Visualization Tools**: Custom plotting utilities for attention patterns and feature representations
 
-### NanoGPT Implementation
+### ⚡ NanoGPT Implementation
 
 The `nanoGPT` directory provides a production-focused implementation with:
 
@@ -44,7 +44,7 @@ The `nanoGPT` directory provides a production-focused implementation with:
 - Data processing for large-scale datasets (FineWeb)
 - Evaluation on benchmark datasets (HellaSwag)
 
-## Technical Skills Demonstrated
+## 🛠️ Technical Skills Demonstrated
 
 This repository showcases expertise in:
 
@@ -56,7 +56,7 @@ This repository showcases expertise in:
 - **Software Engineering**: Clean code organization, type annotations, efficient implementations
 - **Mathematics**: Linear algebra, probability, information theory
 
-## Applications
+## 🎓 Applications
 
 The implementations in this repository can be used for:
 
@@ -65,7 +65,7 @@ The implementations in this repository can be used for:
 3. **Production**: Building and fine-tuning language models for specific applications
 4. **Experimentation**: Testing hypotheses about how language models work
 
-## Getting Started
+## 🚀 Getting Started
 
 To explore this repository:
 
@@ -73,7 +73,7 @@ To explore this repository:
 2. Explore the mechanistic interpretability notebooks to understand how transformers process information
 3. Check out the nanoGPT implementation for a more production-ready approach
 
-## Dependencies
+## 📦 Dependencies
 
 - PyTorch
 - Transformer-Lens
