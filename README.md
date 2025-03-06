@@ -82,3 +82,16 @@ To explore this repository:
 - Matplotlib/Plotly
 - Tiktoken
 - Datasets
+
+## 📚 References
+
+- ARENA Chapter 1: Transformer Interpretability - https://arena-chapter1-transformer-interp.streamlit.app/
+- Attention Is All You Need - https://arxiv.org/pdf/1706.03762
+- Language Models are Unsupervised Multitask Learners (GPT-2) - https://arxiv.org/pdf/2005.14165
+- Language Models are Few-Shot Learners (GPT-3) - https://arxiv.org/pdf/2005.14165
+- What is a Transformer? (Transformer Walkthrough Part 1/2) - https://youtu.be/bOYE6E8JrtU?si=aZ2KFIXRjOyxWr52
+- A Mathematical Framework for Transformer Circuits - https://transformer-circuits.pub/2021/framework/index.html
+- An Analogy for Understanding Transformers - https://www.lesswrong.com/posts/euam65XjigaCJQkcN/an-analogy-for-understanding-transformers
+- Induction heads - illustrated - https://www.lesswrong.com/posts/TvrfY4c9eaGLeyDkE/induction-heads-illustrated
+- Transformer Feed-Forward Layers Are Key-Value Memories - https://arxiv.org/pdf/2012.14913
+- Toy Models of Superposition - https://transformer-circuits.pub/2022/toy_model/index.html
